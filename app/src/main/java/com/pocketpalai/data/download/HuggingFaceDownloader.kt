@@ -14,31 +14,37 @@ import kotlin.coroutines.coroutineContext
 /**
  * Downloads GGUF model files from HuggingFace repositories.
  *
- * Handles:
- * - Direct candidate GGUF URL resolution with exact repository casing
- * - Fallback listing via Hugging Face API for exact filename lookup
- * - Streaming large files to disk without loading into RAM
- * - Real-time progress callbacks
- * - Authorization headers for gated/private models
+ * Features:
+ * - Strips Authorization headers on S3/CDN redirects to avoid AWS 400 Bad Request
+ * - Queries Hugging Face API first for exact rfilename lookup
+ * - Comprehensive candidate filename URL resolution
  * - Resume support via HTTP Range headers
+ * - Real-time progress updates & memory-efficient stream writing
  */
 class HuggingFaceDownloader {
 
     companion object {
         private const val TAG = "HuggingFaceDownloader"
-        private const val BUFFER_SIZE = 32768
+        private const val BUFFER_SIZE = 65536
 
         private val client = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.MINUTES)
-            .writeTimeout(15, TimeUnit.MINUTES)
+            .readTimeout(30, TimeUnit.MINUTES)
+            .writeTimeout(30, TimeUnit.MINUTES)
             .followRedirects(true)
             .followSslRedirects(true)
             .addInterceptor { chain ->
-                val request = chain.request().newBuilder()
+                val originalRequest = chain.request()
+                val requestBuilder = originalRequest.newBuilder()
                     .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 PocketAI/1.0")
-                    .build()
-                chain.proceed(request)
+
+                // Strip Authorization header if redirected to S3 / CDN domain
+                val host = originalRequest.url.host.lowercase()
+                if (host.contains("cdn-lfs") || host.contains("amazonaws") || host.contains("cloudflare")) {
+                    requestBuilder.removeHeader("Authorization")
+                }
+
+                chain.proceed(requestBuilder.build())
             }
             .build()
     }
@@ -59,10 +65,10 @@ class HuggingFaceDownloader {
                 outputDir.mkdirs()
             }
 
-            // Direct URL support (e.g. if user pasted a direct Hugging Face resolve link)
+            // Direct URL support
             if (repoId.startsWith("http://") || repoId.startsWith("https://")) {
                 val urlFileName = repoId.substringAfterLast("/")
-                val outputFile = File(outputDir, if (urlFileName.endsWith(".gguf")) urlFileName else "custom_model.gguf")
+                val outputFile = File(outputDir, if (urlFileName.endsWith(".gguf", ignoreCase = true)) urlFileName else "custom_model.gguf")
                 Log.d(TAG, "Downloading direct URL: $repoId")
                 return@withContext tryDownloadUrl(repoId, outputFile, hfToken, existingBytes, onProgress)
             }
@@ -70,6 +76,14 @@ class HuggingFaceDownloader {
             val localFileName = repoId.replace("/", "_").lowercase() + "_${quantization.lowercase()}.gguf"
             val outputFile = File(outputDir, localFileName)
 
+            // Strategy 1: Query Hugging Face API for exact filename
+            Log.d(TAG, "Querying HF API for exact filename in repo: $repoId")
+            val apiResult = tryFallbackDownload(repoId, quantization, outputDir, hfToken, onProgress)
+            if (apiResult != null) {
+                return@withContext apiResult
+            }
+
+            // Strategy 2: Candidate filename guessing
             val repoName = repoId.substringAfter("/")
             val baseName = repoName.removeSuffix("-GGUF").removeSuffix("-gguf").removeSuffix("-Gguf")
             val baseNameLower = baseName.lowercase()
@@ -80,11 +94,10 @@ class HuggingFaceDownloader {
             val candidateFileNames = listOf(
                 "$baseName-$quantUpper.gguf",
                 "$baseNameLower-$quantLower.gguf",
-                "$baseName-$quantLower.gguf",
-                "$baseNameLower-$quantUpper.gguf",
                 "$baseName.$quantUpper.gguf",
                 "$baseNameLower.$quantLower.gguf",
-                "$baseName.$quantUpper.gguf",
+                "$baseName-$quantLower.gguf",
+                "$baseNameLower-$quantUpper.gguf",
                 "$repoName-$quantUpper.gguf",
                 "$repoNameLower-$quantLower.gguf",
                 "$baseName.gguf",
@@ -99,13 +112,6 @@ class HuggingFaceDownloader {
                 if (result != null) {
                     return@withContext result
                 }
-            }
-
-            // Fallback: Query Hugging Face API for exact filename in repo
-            Log.d(TAG, "Candidates failed, querying HF API for repo: $repoId")
-            val fallbackFile = tryFallbackDownload(repoId, quantization, outputDir, hfToken, onProgress)
-            if (fallbackFile != null) {
-                return@withContext fallbackFile
             }
 
             Log.e(TAG, "All download strategies failed for repo: $repoId, quant: $quantization")
@@ -225,7 +231,7 @@ class HuggingFaceDownloader {
             response.close()
             if (responseBody.isNullOrBlank()) return@withContext null
 
-            // Regex match all rfilename values in the JSON siblings list
+            // Extract all rfilename occurrences from HF JSON response
             val regex = Regex(""""rfilename"\s*:\s*"([^"]+)"""")
             val matches = regex.findAll(responseBody).map { it.groupValues[1] }.toList()
 
@@ -241,7 +247,7 @@ class HuggingFaceDownloader {
             } ?: ggufFiles.firstOrNull()
 
             if (matchedFile != null) {
-                Log.d(TAG, "Downloading matched GGUF file: $matchedFile")
+                Log.d(TAG, "Downloading matched GGUF file from HF API: $matchedFile")
                 val directUrl = "https://huggingface.co/$repoId/resolve/main/$matchedFile"
                 val localFileName = repoId.replace("/", "_").lowercase() + "_${quantization.lowercase()}.gguf"
                 val outputFile = File(outputDir, localFileName)
