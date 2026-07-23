@@ -9,6 +9,7 @@ import com.pocketpalai.data.repository.PocketPalRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = PocketPalRepository(PocketPalDatabase.getDatabase(application))
@@ -97,6 +98,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private val _isWebSearchEnabled = MutableStateFlow(true)
+    val isWebSearchEnabled: StateFlow<Boolean> = _isWebSearchEnabled.asStateFlow()
+
+    fun toggleWebSearch() {
+        _isWebSearchEnabled.value = !_isWebSearchEnabled.value
+    }
+
     fun sendMessage(prompt: String) {
         if (prompt.isBlank() || _isGenerating.value) return
         var currentSessionId = _selectedSessionId.value
@@ -120,6 +128,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 pal = currentPal,
                 activeModel = activeModel,
                 hfToken = _hfToken.value,
+                enableWebSearch = _isWebSearchEnabled.value,
                 onChunk = { partialText ->
                     _streamingText.value = partialText
                 }

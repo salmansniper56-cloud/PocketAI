@@ -419,7 +419,7 @@ fun AddModelDialog(
     var selectedQuant by remember { mutableStateOf("Q4_K_M") }
     var showQuantDropdown by remember { mutableStateOf(false) }
 
-    val quantsList = listOf("Q4_K_M", "Q5_K_M", "Q8_0", "F16")
+    val quantsList = listOf("Q2_K", "Q3_K_S", "Q3_K_M", "Q3_K_L", "Q4_0", "Q4_K_S", "Q4_K_M", "Q5_0", "Q5_K_S", "Q5_K_M", "Q6_K", "Q8_0", "F16", "IQ3_M", "IQ4_XS")
 
     AlertDialog(
         onDismissRequest = onDismiss,

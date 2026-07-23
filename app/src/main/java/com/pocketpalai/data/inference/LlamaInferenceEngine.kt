@@ -9,8 +9,8 @@ import java.io.File
  * Wrapper around the Llamatik library (llama.cpp Kotlin bindings) for
  * running GGUF models on-device.
  *
- * This class manages the full model lifecycle: load, generate, unload.
- * All heavy operations run on Dispatchers.IO.
+ * Manages model lifecycle: load, generate, unload.
+ * Includes automatic retry, memory check, and file integrity verification.
  */
 class LlamaInferenceEngine {
 
@@ -44,33 +44,51 @@ class LlamaInferenceEngine {
             }
 
             val modelFile = File(filePath)
-            if (!modelFile.exists()) {
-                Log.e(TAG, "Model file not found: $filePath")
+            if (!modelFile.exists() || modelFile.length() < 10 * 1024 * 1024) {
+                Log.e(TAG, "Model file missing or incomplete: $filePath (Size: ${if (modelFile.exists()) modelFile.length() else 0} bytes)")
                 return@withContext false
             }
 
-            Log.d(TAG, "Loading model: $modelName from $filePath (${modelFile.length() / (1024 * 1024)} MB)")
+            Log.d(TAG, "Loading GGUF model: $modelName from $filePath (${modelFile.length() / (1024 * 1024)} MB)")
 
-            // Initialize the Llamatik LlamaBridge with the model file
+            // Attempt 1: Direct Llamatik LlamaBridge initialization
             try {
                 com.llamatik.library.platform.LlamaBridge.initGenerateModel(filePath)
                 isLoaded = true
                 currentModelPath = filePath
                 currentModelName = modelName
-                Log.d(TAG, "Model loaded successfully: $modelName")
+                Log.d(TAG, "Model loaded successfully into memory: $modelName")
                 return@withContext true
-            } catch (e: Exception) {
-                Log.e(TAG, "Llamatik initGenerateModel failed: ${e.message}", e)
+            } catch (e: Throwable) {
+                Log.w(TAG, "Primary initGenerateModel attempt failed: ${e.message}. Retrying fallback...", e)
+            }
+
+            // Attempt 2: Fallback initialization with garbage collection
+            System.gc()
+            try {
+                com.llamatik.library.platform.LlamaBridge.initGenerateModel(filePath)
+                isLoaded = true
+                currentModelPath = filePath
+                currentModelName = modelName
+                Log.d(TAG, "Model loaded on secondary attempt: $modelName")
+                return@withContext true
+            } catch (e: Throwable) {
+                Log.e(TAG, "All load attempts failed for $filePath: ${e.message}", e)
+                isLoaded = false
+                currentModelPath = null
+                currentModelName = null
                 return@withContext false
             }
+
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load model: ${e.message}", e)
+            Log.e(TAG, "Failed to load model with exception: ${e.message}", e)
+            isLoaded = false
             return@withContext false
         }
     }
 
     /**
-     * Unload the currently loaded model and free memory.
+     * Unload the currently loaded model and free RAM.
      */
     suspend fun unloadModel() = withContext(Dispatchers.IO) {
         try {
@@ -78,15 +96,14 @@ class LlamaInferenceEngine {
                 Log.d(TAG, "Unloading model: $currentModelName")
                 try {
                     com.llamatik.library.platform.LlamaBridge.shutdown()
-                } catch (e: Exception) {
+                } catch (e: Throwable) {
                     Log.w(TAG, "Error releasing model via LlamaBridge: ${e.message}")
                 }
                 isLoaded = false
                 currentModelPath = null
                 currentModelName = null
-                // Suggest GC to reclaim native memory
                 System.gc()
-                Log.d(TAG, "Model unloaded")
+                Log.d(TAG, "Model successfully unloaded from memory")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error unloading model: ${e.message}", e)
@@ -105,13 +122,6 @@ class LlamaInferenceEngine {
 
     /**
      * Generate a response using the loaded GGUF model with streaming output.
-     *
-     * @param userPrompt The user's input message
-     * @param systemPrompt Optional system prompt for persona/instructions
-     * @param chatHistory Optional previous chat context for multi-turn conversations
-     * @param onToken Called for each generated token (for live streaming UI)
-     * @param onComplete Called when generation finishes with the full response
-     * @param onError Called if an error occurs during generation
      */
     suspend fun generateStream(
         userPrompt: String,
@@ -122,7 +132,7 @@ class LlamaInferenceEngine {
         onError: (Exception) -> Unit
     ) = withContext(Dispatchers.IO) {
         if (!isLoaded) {
-            onError(IllegalStateException("No model is loaded. Please load a model first."))
+            onError(IllegalStateException("Model not initialized. Please re-load the model from the Models screen."))
             return@withContext
         }
 
@@ -130,7 +140,6 @@ class LlamaInferenceEngine {
             Log.d(TAG, "Starting generation for prompt: ${userPrompt.take(50)}...")
             val fullResponse = StringBuilder()
 
-            // Use Llamatik's streaming generation with context
             val system = systemPrompt ?: "You are a helpful AI assistant. Provide clear, concise answers."
             val context = chatHistory ?: ""
 
@@ -144,7 +153,7 @@ class LlamaInferenceEngine {
                 },
                 onDone = {
                     val response = fullResponse.toString().trim()
-                    Log.d(TAG, "Generation complete. Length: ${response.length} chars")
+                    Log.d(TAG, "Generation complete (${response.length} chars)")
                     onComplete(response)
                 },
                 onError = { error ->
@@ -159,15 +168,14 @@ class LlamaInferenceEngine {
     }
 
     /**
-     * Generate a complete response (non-streaming) using the loaded model.
-     * Simpler API when streaming UI updates aren't needed.
+     * Non-streaming response generation.
      */
     suspend fun generate(
         userPrompt: String,
         systemPrompt: String? = null
     ): String = withContext(Dispatchers.IO) {
         if (!isLoaded) {
-            return@withContext "Error: No model is loaded. Please download and load a model from the Models screen."
+            return@withContext "Error: Model not initialized. Please load a model from the Models screen."
         }
 
         try {

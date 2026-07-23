@@ -77,12 +77,44 @@ class PocketPalRepository(private val db: PocketPalDatabase) {
      * Send a message and generate a response using on-device local GGUF models via llama.cpp.
      * If no model is loaded, prompts the user to download and load a local model from the Models screen.
      */
+    private fun fetchLiveWebSearchResults(query: String): String? {
+        return try {
+            val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
+            val searchUrl = "https://html.duckduckgo.com/html/?q=$encodedQuery"
+            val conn = URL(searchUrl).openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 3500
+            conn.readTimeout = 3500
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36")
+            
+            if (conn.responseCode == 200) {
+                val html = conn.inputStream.bufferedReader().readText()
+                val snippetRegex = Regex("""<a class="result__snippet[^>]*>(.*?)</a>""", RegexOption.DOT_MATCHES_ALL)
+                val matches = snippetRegex.findAll(html).take(3).map { 
+                    it.groupValues[1].replace(Regex("<[^>]*>"), "").trim() 
+                }.filter { it.isNotBlank() }.toList()
+
+                if (matches.isNotEmpty()) {
+                    matches.joinToString("\n• ")
+                } else null
+            } else null
+        } catch (e: Exception) {
+            Log.w(TAG, "Web search offline or network timeout: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Send a message and generate a response using on-device local GGUF models via llama.cpp.
+     * If web search is enabled and network is available, fetches live web snippets.
+     */
     suspend fun sendMessage(
         sessionId: String,
         userPrompt: String,
         pal: Pal?,
         activeModel: LocalModel?,
         hfToken: String,
+        enableWebSearch: Boolean = true,
         onChunk: (String) -> Unit
     ) = withContext(Dispatchers.IO) {
         val userMsgId = UUID.randomUUID().toString()
@@ -97,16 +129,24 @@ class PocketPalRepository(private val db: PocketPalDatabase) {
         val assistantMsgId = UUID.randomUUID().toString()
         val startTime = System.currentTimeMillis()
         val modelName = activeModel?.name ?: "No Model"
+
+        // Live Web Search (if online)
+        val liveWebContext = if (enableWebSearch) fetchLiveWebSearchResults(userPrompt) else null
         
         // Build reasoning step
         val reasoningSteps = buildString {
             if (llamaEngine.isModelLoaded()) {
                 append("1. Using on-device model: ${llamaEngine.getLoadedModelName() ?: modelName}\n")
                 append("2. Inference engine: llama.cpp (GGUF)\n")
-                if (pal != null && pal.id != "assistant_default") {
-                    append("3. Applying persona: ${pal.name} (${pal.type})\n")
+                if (!liveWebContext.isNullOrBlank()) {
+                    append("3. Live Web Search: Fetched fresh online snippets (WiFi/Cellular)\n")
+                } else if (enableWebSearch) {
+                    append("3. Live Web Search: Offline mode (Fallback to local model knowledge)\n")
                 }
-                append("${if (pal != null && pal.id != "assistant_default") "4" else "3"}. Generating response locally on-device...\n")
+                if (pal != null && pal.id != "assistant_default") {
+                    append("4. Applying persona: ${pal.name} (${pal.type})\n")
+                }
+                append("Generating response locally on-device...\n")
             } else {
                 append("1. No local model loaded in memory\n")
                 append("2. Please download and load a model from the Models screen\n")
@@ -119,7 +159,10 @@ class PocketPalRepository(private val db: PocketPalDatabase) {
         if (llamaEngine.isModelLoaded()) {
             Log.d(TAG, "Generating response using local GGUF model")
             try {
-                val systemPrompt = pal?.systemPrompt ?: "You are a helpful AI assistant. Provide clear, concise, and accurate answers."
+                val baseSystemPrompt = pal?.systemPrompt ?: "You are a helpful AI assistant. Provide clear, concise, and accurate answers."
+                val systemPrompt = if (!liveWebContext.isNullOrBlank()) {
+                    "$baseSystemPrompt\n\n[Live Web Search Context (Fresh News & Facts)]:\n• $liveWebContext\n\nUse the live web context above to provide accurate, up-to-date answers."
+                } else baseSystemPrompt
                 
                 // Build chat context from recent messages
                 val recentMessages = db.chatMessageDao().getRecentMessages(sessionId, 6)
