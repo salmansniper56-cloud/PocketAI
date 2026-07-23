@@ -1,0 +1,6 @@
+{
+  "name": "PocketAI",
+  "description": "A private, OpenAI-style AI assistant running local models, text-to-speech, custom Pals, and benchmarks on-device.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
