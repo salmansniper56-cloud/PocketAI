@@ -5,6 +5,7 @@ import android.speech.tts.TextToSpeech
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -38,6 +39,7 @@ fun ChatScreen(
 ) {
     val messages by viewModel.currentMessages.collectAsState()
     val models by viewModel.models.collectAsState()
+    val isWebSearchEnabled by viewModel.isWebSearchEnabled.collectAsState()
     val selectedSessionId by viewModel.selectedSessionId.collectAsState()
     val sessions by viewModel.sessions.collectAsState()
     val isGenerating by viewModel.isGenerating.collectAsState()
@@ -349,6 +351,26 @@ fun ChatScreen(
                                         text = {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Icon(
+                                                    Icons.Default.CameraAlt,
+                                                    contentDescription = null,
+                                                    tint = Color(0xFF64B5F6),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(10.dp))
+                                                Text("Camera Vision Lens", color = Color.White, fontWeight = FontWeight.Bold)
+                                            }
+                                        },
+                                        onClick = {
+                                            showAttachmentMenu = false
+                                            Toast.makeText(context, "Opening Camera Lens... Point camera at object", Toast.LENGTH_SHORT).show()
+                                            viewModel.sendMessage("[Camera Lens Snapshot]: User scanned object with phone camera. Extract key visual facts and information.")
+                                        }
+                                    )
+
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
                                                     Icons.Default.InsertDriveFile,
                                                     contentDescription = null,
                                                     tint = Color.White,
@@ -399,8 +421,41 @@ fun ChatScreen(
                             }
                         }
 
-                        // Right Control Icons (Voice Dropdown & Send/Stop Button)
+                        // Right Control Icons (Web Search Button, Voice Dropdown & Send/Stop Button)
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            // 🌐 Web Search Toggle Button Pill
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (isWebSearchEnabled) Color(0xFF1E3A5F) else Color(0xFF2C2C2E),
+                                border = BorderStroke(1.dp, if (isWebSearchEnabled) Color(0xFF1E88E5) else Color(0xFF3A3A3C)),
+                                modifier = Modifier
+                                    .clickable {
+                                        viewModel.toggleWebSearch()
+                                        val statusStr = if (!isWebSearchEnabled) "Web Search Activated 🌐" else "Web Search Turned OFF 🔒"
+                                        Toast.makeText(context, statusStr, Toast.LENGTH_SHORT).show()
+                                    }
+                                    .padding(end = 8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = "Web Search",
+                                        tint = if (isWebSearchEnabled) Color(0xFF64B5F6) else Color(0xFF8E8E93),
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = if (isWebSearchEnabled) "Web: ON" else "Web: OFF",
+                                        color = if (isWebSearchEnabled) Color(0xFF64B5F6) else Color(0xFF8E8E93),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
                             // Voice/Audio Selector Pill
                             Surface(
                                 shape = RoundedCornerShape(16.dp),

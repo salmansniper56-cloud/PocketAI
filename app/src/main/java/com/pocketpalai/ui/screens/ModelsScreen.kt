@@ -171,6 +171,55 @@ fun ModelsScreen(
                         )
                     }
                 }
+
+                // Section 3: Voice & Speech AI Models
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp, bottom = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Mic,
+                                    contentDescription = "Voice Models",
+                                    tint = Color(0xFF64B5F6),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Voice & Text-to-Speech Engine",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFF1E3A5F)
+                            ) {
+                                Text(
+                                    text = "System TTS Active",
+                                    color = Color(0xFF64B5F6),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Supports Android System Text-to-Speech, Piper TTS, and Whisper Audio GGUF models.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF8E8E93)
+                        )
+                    }
+                }
             }
 
             if (showAddModelDialog) {

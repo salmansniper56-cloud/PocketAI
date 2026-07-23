@@ -137,22 +137,41 @@ class LlamaInferenceEngine {
         }
 
         try {
-            Log.d(TAG, "Starting generation for prompt: ${userPrompt.take(50)}...")
+            Log.d(TAG, "Starting generation for prompt: ${userPrompt.take(50)}... (Model: $currentModelName)")
             val fullResponse = StringBuilder()
 
             val system = systemPrompt ?: "You are a helpful AI assistant. Provide clear, concise answers."
             val context = chatHistory ?: ""
 
+            val formattedPrompt = ChatTemplateFormatter.formatPrompt(
+                modelName = currentModelName ?: "",
+                filePath = currentModelPath ?: "",
+                systemPrompt = system,
+                chatHistory = context,
+                userPrompt = userPrompt
+            )
+
             com.llamatik.library.platform.LlamaBridge.generateWithContextStream(
-                system = system,
-                context = context,
-                user = userPrompt,
+                system = "",
+                context = "",
+                user = formattedPrompt,
                 onDelta = { token ->
-                    fullResponse.append(token)
-                    onToken(token)
+                    val currentText = fullResponse.toString()
+                    if (!currentText.contains("<|eot_id|>") && 
+                        !currentText.contains("<|end_of_text|>") && 
+                        !currentText.contains("<|im_end|>")) {
+                        fullResponse.append(token)
+                        onToken(token)
+                    }
                 },
                 onDone = {
-                    val response = fullResponse.toString().trim()
+                    val response = fullResponse.toString()
+                        .replace("<|eot_id|>", "")
+                        .replace("<|end_of_text|>", "")
+                        .replace("<|im_end|>", "")
+                        .replace("User:", "")
+                        .replace("Assistant:", "")
+                        .trim()
                     Log.d(TAG, "Generation complete (${response.length} chars)")
                     onComplete(response)
                 },

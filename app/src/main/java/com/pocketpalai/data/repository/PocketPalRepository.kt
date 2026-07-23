@@ -164,12 +164,12 @@ class PocketPalRepository(private val db: PocketPalDatabase) {
                     "$baseSystemPrompt\n\n[Live Web Search Context (Fresh News & Facts)]:\n• $liveWebContext\n\nUse the live web context above to provide accurate, up-to-date answers."
                 } else baseSystemPrompt
                 
-                // Build chat context from recent messages
-                val recentMessages = db.chatMessageDao().getRecentMessages(sessionId, 6)
+                // Build chat context from recent messages in chronological order (oldest to newest)
+                val recentMessages = db.chatMessageDao().getRecentMessages(sessionId, 6).reversed()
                 val chatContext = recentMessages.joinToString("\n") { msg ->
                     when (msg.sender) {
                         "user" -> "User: ${msg.text}"
-                        "assistant" -> "Assistant: ${msg.text}"
+                        "assistant" -> "Assistant: ${msg.text.take(300)}"
                         else -> ""
                     }
                 }
