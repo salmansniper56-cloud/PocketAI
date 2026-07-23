@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
 import com.pocketpalai.ui.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,9 +63,13 @@ fun AboutScreen(
                     modifier = Modifier.padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("✨", style = MaterialTheme.typography.displayMedium)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("PocketAI", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(id = com.pocketpalai.R.drawable.logo),
+                        contentDescription = "Pocket AI Logo",
+                        modifier = Modifier.size(72.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Pocket AI", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("Version 1.0.0", style = MaterialTheme.typography.bodySmall)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
