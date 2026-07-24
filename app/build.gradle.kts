@@ -92,10 +92,11 @@ dependencies {
     implementation(libs.coil.compose)
     // implementation(libs.generativeai)
 
-    // On-device GGUF inference via llama.cpp
-    implementation("com.llamatik:library:0.12.0")
-
-    // Real HTTP downloads from HuggingFace
+    // ONNX Runtime Mobile (correct Maven coordinate)
+    implementation("com.microsoft.onnxruntime:onnxruntime-mobile:1.18.0")
+    // MLC Android engine – add as a local module after you build the AAR.
+    // implementation project(":mlc-engine")
+    // OkHttp for model downloads
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     testImplementation(libs.junit)

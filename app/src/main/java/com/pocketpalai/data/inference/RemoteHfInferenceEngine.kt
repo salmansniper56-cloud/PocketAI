@@ -5,27 +5,28 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Stub placeholder for legacy Llama engine. Not used in the current logic.
+ * Stub implementation of remote Hugging Face inference.
+ * This placeholder satisfies the InferenceEngine interface.
  */
-class LlamaInferenceEngine private constructor() : InferenceEngine {
+class RemoteHfInferenceEngine private constructor() : InferenceEngine {
     companion object {
-        private var INSTANCE: LlamaInferenceEngine? = null
-        fun getInstance(): LlamaInferenceEngine =
-            INSTANCE ?: synchronized(this) { INSTANCE ?: LlamaInferenceEngine().also { INSTANCE = it } }
+        private var INSTANCE: RemoteHfInferenceEngine? = null
+        fun getInstance(): RemoteHfInferenceEngine =
+            INSTANCE ?: synchronized(this) { INSTANCE ?: RemoteHfInferenceEngine().also { INSTANCE = it } }
     }
 
     private var loaded = false
     private var modelName: String? = null
 
     override suspend fun loadModel(filePath: String, modelName: String): Boolean = withContext(Dispatchers.IO) {
-        Log.d("LlamaInferenceEngine", "loadModel stub called for $modelName")
-        this@LlamaInferenceEngine.loaded = true
-        this@LlamaInferenceEngine.modelName = modelName
+        Log.d("RemoteHfInferenceEngine", "loadModel called (stub) for $modelName")
+        this@RemoteHfInferenceEngine.loaded = true
+        this@RemoteHfInferenceEngine.modelName = modelName
         true
     }
 
     override suspend fun unloadModel() = withContext(Dispatchers.IO) {
-        Log.d("LlamaInferenceEngine", "unloadModel stub")
+        Log.d("RemoteHfInferenceEngine", "unloadModel (stub)")
         loaded = false
         modelName = null
     }
@@ -45,7 +46,7 @@ class LlamaInferenceEngine private constructor() : InferenceEngine {
             onError(IllegalStateException("Model not loaded"))
             return@withContext
         }
-        val dummy = "[Llama stub response for: $userPrompt]"
+        val dummy = "[Remote HF stub response for: $userPrompt]"
         onToken(dummy)
         onComplete(dummy)
     }
@@ -56,6 +57,6 @@ class LlamaInferenceEngine private constructor() : InferenceEngine {
         chatHistory: String?
     ): String = withContext(Dispatchers.IO) {
         if (!loaded) return@withContext "Error: model not loaded"
-        "[Llama stub response for: $userPrompt]"
+        "[Remote HF stub response for: $userPrompt]"
     }
 }

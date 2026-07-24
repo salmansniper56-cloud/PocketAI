@@ -91,6 +91,10 @@ fun PocketPalMainApp(settingsViewModel: SettingsViewModel) {
                 viewModel = modelsViewModel,
                 onOpenDrawer = { scope.launch { drawerState.open() } }
             )
+            NavDestination.TTS_STUDIO -> TtsStudioScreen(
+                modelsViewModel = modelsViewModel,
+                onOpenDrawer = { scope.launch { drawerState.open() } }
+            )
             NavDestination.BENCHMARK -> BenchmarkScreen(
                 viewModel = benchmarkViewModel,
                 onOpenDrawer = { scope.launch { drawerState.open() } }

@@ -5,27 +5,30 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Stub placeholder for legacy Llama engine. Not used in the current logic.
+ * Stub implementation of the MLC (GGUF) inference engine.
+ * Currently provides no real inference – it simply logs calls
+ * and returns placeholder strings. This satisfies compilation
+ * while the real native integration can be added later.
  */
-class LlamaInferenceEngine private constructor() : InferenceEngine {
+class MlcInferenceEngine private constructor() : InferenceEngine {
     companion object {
-        private var INSTANCE: LlamaInferenceEngine? = null
-        fun getInstance(): LlamaInferenceEngine =
-            INSTANCE ?: synchronized(this) { INSTANCE ?: LlamaInferenceEngine().also { INSTANCE = it } }
+        private var INSTANCE: MlcInferenceEngine? = null
+        fun getInstance(): MlcInferenceEngine =
+            INSTANCE ?: synchronized(this) { INSTANCE ?: MlcInferenceEngine().also { INSTANCE = it } }
     }
 
     private var loaded = false
     private var modelName: String? = null
 
     override suspend fun loadModel(filePath: String, modelName: String): Boolean = withContext(Dispatchers.IO) {
-        Log.d("LlamaInferenceEngine", "loadModel stub called for $modelName")
-        this@LlamaInferenceEngine.loaded = true
-        this@LlamaInferenceEngine.modelName = modelName
+        Log.d("MlcInferenceEngine", "loadModel called with $filePath (model=$modelName)")
+        this@MlcInferenceEngine.loaded = true
+        this@MlcInferenceEngine.modelName = modelName
         true
     }
 
     override suspend fun unloadModel() = withContext(Dispatchers.IO) {
-        Log.d("LlamaInferenceEngine", "unloadModel stub")
+        Log.d("MlcInferenceEngine", "unloadModel")
         loaded = false
         modelName = null
     }
@@ -45,7 +48,8 @@ class LlamaInferenceEngine private constructor() : InferenceEngine {
             onError(IllegalStateException("Model not loaded"))
             return@withContext
         }
-        val dummy = "[Llama stub response for: $userPrompt]"
+        Log.d("MlcInferenceEngine", "generateStream placeholder")
+        val dummy = "[MLC stub response for: $userPrompt]"
         onToken(dummy)
         onComplete(dummy)
     }
@@ -56,6 +60,7 @@ class LlamaInferenceEngine private constructor() : InferenceEngine {
         chatHistory: String?
     ): String = withContext(Dispatchers.IO) {
         if (!loaded) return@withContext "Error: model not loaded"
-        "[Llama stub response for: $userPrompt]"
+        Log.d("MlcInferenceEngine", "generate placeholder")
+        "[MLC stub response for: $userPrompt]"
     }
 }

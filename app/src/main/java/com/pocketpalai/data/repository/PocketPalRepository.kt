@@ -83,21 +83,28 @@ class PocketPalRepository(private val db: PocketPalDatabase) {
             val searchUrl = "https://html.duckduckgo.com/html/?q=$encodedQuery"
             val conn = URL(searchUrl).openConnection() as HttpURLConnection
             conn.requestMethod = "GET"
-            conn.connectTimeout = 3500
-            conn.readTimeout = 3500
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36")
+            conn.connectTimeout = 4500
+            conn.readTimeout = 4500
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13; Pixel 7 Build/TQ3A.230901.001) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
+            conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9")
             
-            if (conn.responseCode == 200) {
+            val responseCode = conn.responseCode
+            if (responseCode == 200) {
                 val html = conn.inputStream.bufferedReader().readText()
                 val snippetRegex = Regex("""<a class="result__snippet[^>]*>(.*?)</a>""", RegexOption.DOT_MATCHES_ALL)
-                val matches = snippetRegex.findAll(html).take(3).map { 
+                val matches = snippetRegex.findAll(html).take(4).map { 
                     it.groupValues[1].replace(Regex("<[^>]*>"), "").trim() 
                 }.filter { it.isNotBlank() }.toList()
 
                 if (matches.isNotEmpty()) {
+                    Log.d(TAG, "Web Search successfully fetched ${matches.size} snippets")
                     matches.joinToString("\n• ")
                 } else null
-            } else null
+            } else {
+                Log.w(TAG, "Web Search response HTTP $responseCode")
+                null
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Web search offline or network timeout: ${e.message}")
             null

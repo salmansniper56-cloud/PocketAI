@@ -24,6 +24,7 @@ import com.pocketpalai.data.model.ChatSession
 enum class NavDestination(val title: String, val icon: ImageVector) {
     CHAT("Chat", Icons.AutoMirrored.Filled.Chat),
     MODELS("Models", Icons.Default.GridView),
+    TTS_STUDIO("Text to Speech", Icons.Default.VolumeUp),
     BENCHMARK("Benchmark", Icons.Default.Timer),
     SETTINGS("Settings", Icons.Default.Settings),
     ABOUT("App Info", Icons.Default.Info)

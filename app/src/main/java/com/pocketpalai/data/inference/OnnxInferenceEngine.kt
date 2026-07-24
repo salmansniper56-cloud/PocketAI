@@ -5,27 +5,28 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Stub placeholder for legacy Llama engine. Not used in the current logic.
+ * Stub implementation of the ONNX Runtime inference engine.
+ * Provides placeholder behavior to satisfy compilation.
  */
-class LlamaInferenceEngine private constructor() : InferenceEngine {
+class OnnxInferenceEngine private constructor() : InferenceEngine {
     companion object {
-        private var INSTANCE: LlamaInferenceEngine? = null
-        fun getInstance(): LlamaInferenceEngine =
-            INSTANCE ?: synchronized(this) { INSTANCE ?: LlamaInferenceEngine().also { INSTANCE = it } }
+        private var INSTANCE: OnnxInferenceEngine? = null
+        fun getInstance(): OnnxInferenceEngine =
+            INSTANCE ?: synchronized(this) { INSTANCE ?: OnnxInferenceEngine().also { INSTANCE = it } }
     }
 
     private var loaded = false
     private var modelName: String? = null
 
     override suspend fun loadModel(filePath: String, modelName: String): Boolean = withContext(Dispatchers.IO) {
-        Log.d("LlamaInferenceEngine", "loadModel stub called for $modelName")
-        this@LlamaInferenceEngine.loaded = true
-        this@LlamaInferenceEngine.modelName = modelName
+        Log.d("OnnxInferenceEngine", "loadModel called with $filePath (model=$modelName)")
+        this@OnnxInferenceEngine.loaded = true
+        this@OnnxInferenceEngine.modelName = modelName
         true
     }
 
     override suspend fun unloadModel() = withContext(Dispatchers.IO) {
-        Log.d("LlamaInferenceEngine", "unloadModel stub")
+        Log.d("OnnxInferenceEngine", "unloadModel")
         loaded = false
         modelName = null
     }
@@ -45,7 +46,7 @@ class LlamaInferenceEngine private constructor() : InferenceEngine {
             onError(IllegalStateException("Model not loaded"))
             return@withContext
         }
-        val dummy = "[Llama stub response for: $userPrompt]"
+        val dummy = "[ONNX stub response for: $userPrompt]"
         onToken(dummy)
         onComplete(dummy)
     }
@@ -56,6 +57,6 @@ class LlamaInferenceEngine private constructor() : InferenceEngine {
         chatHistory: String?
     ): String = withContext(Dispatchers.IO) {
         if (!loaded) return@withContext "Error: model not loaded"
-        "[Llama stub response for: $userPrompt]"
+        "[ONNX stub response for: $userPrompt]"
     }
 }
